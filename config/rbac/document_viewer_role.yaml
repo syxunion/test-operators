@@ -1,0 +1,20 @@
+# permissions for end users to view documents.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: document-viewer-role
+rules:
+- apiGroups:
+  - uccps.uccps.document.domain
+  resources:
+  - documents
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - uccps.uccps.document.domain
+  resources:
+  - documents/status
+  verbs:
+  - get

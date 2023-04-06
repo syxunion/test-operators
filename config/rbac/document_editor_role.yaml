@@ -1,0 +1,24 @@
+# permissions for end users to edit documents.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: document-editor-role
+rules:
+- apiGroups:
+  - uccps.uccps.document.domain
+  resources:
+  - documents
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - uccps.uccps.document.domain
+  resources:
+  - documents/status
+  verbs:
+  - get

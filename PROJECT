@@ -1,0 +1,16 @@
+domain: uccps.document.domain
+layout:
+- go.kubebuilder.io/v3
+projectName: docs-operator
+repo: uccps_docs.domain
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: uccps.document.domain
+  group: uccps
+  kind: Document
+  path: uccps_docs.domain/api/v1
+  version: v1
+version: "3"

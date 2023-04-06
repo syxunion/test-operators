@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sxy-test
+  labels:
+    name: syx-test
+apiVersion: uccps.uccps.document.domain/v1
+kind: Document
+metadata:
+  name: document-sample
+spec:
+  image: 10.30.38.116/syx-test/doc-test:1.3
