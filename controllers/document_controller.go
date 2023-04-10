@@ -19,6 +19,9 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
+
+	routev1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -26,7 +29,6 @@ import (
 	matev1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"runtime/debug"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -44,6 +46,9 @@ type DocumentReconciler struct {
 //+kubebuilder:rbac:groups=uccps.uccps.document.domain,resources=documents,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=uccps.uccps.document.domain,resources=documents/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=uccps.uccps.document.domain,resources=documents/finalizers,verbs=update
+//+kubebuilder:rbac:groups=uccps.uccps.document.domain,resources=documents,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=apps,resources=deployment,verbs=get;update;patch;watch;list;delete;create
+//+kubebuilder:rbac:groups=apps,resources=services,verbs=get;update;patch;watch;list;delete;create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -90,6 +95,12 @@ func (r *DocumentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 			// 先要创建service
 			if err = createService(ctx, instance, r, req); err != nil {
+				// 返回错误信息给外部
+				return ctrl.Result{}, err
+			}
+
+			//创建 路由
+			if err = createRoute(ctx, instance, r, req); err != nil {
 				// 返回错误信息给外部
 				return ctrl.Result{}, err
 			}
@@ -281,6 +292,61 @@ func createService(ctx context.Context, document *uccpsv1.Document, r *DocumentR
 
 	// 创建service
 	if err := r.Create(ctx, svc); err != nil {
+		return err
+	}
+	return nil
+}
+
+//创建路由
+func createRoute(ctx context.Context, document *uccpsv1.Document, r *DocumentReconciler, req ctrl.Request) error {
+
+	route := &routev1.Route{}
+
+	err := r.Get(ctx, req.NamespacedName, route)
+
+	// 如果查询结果没有错误，证明service正常，就不做任何操作
+	if err == nil {
+		return nil
+	}
+
+	// 如果错误不是NotFound，就返回错误
+	if !errors.IsNotFound(err) {
+		return err
+	}
+
+	var weight int32
+
+	weight = 100
+	svcr := &routev1.Route{
+		ObjectMeta: matev1.ObjectMeta{
+			Namespace: document.Namespace,
+		},
+		Spec: routev1.RouteSpec{
+			Host: "uccps-document",
+			Port: &routev1.RoutePort{
+				TargetPort: intstr.IntOrString{StrVal: "8080"},
+			},
+			TLS: &routev1.TLSConfig{
+				Termination:                   "edge",
+				InsecureEdgeTerminationPolicy: "Redirect",
+			},
+			WildcardPolicy: routev1.WildcardPolicyNone,
+
+			To: routev1.RouteTargetReference{
+				Kind:   "Service",
+				Name:   "https-document",
+				Weight: &weight,
+			},
+		},
+	}
+	// 这一步非常关键！
+	// 建立关联后，删除elasticweb资源时就会将deployment也删除掉
+	if err := controllerutil.SetControllerReference(document, svcr, r.Scheme); err != nil {
+		return err
+	}
+
+	// 创建路由
+	if err := r.Create(ctx, svcr); err != nil {
 		return err
 	}
 	return nil
