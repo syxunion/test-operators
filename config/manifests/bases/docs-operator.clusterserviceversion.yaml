@@ -1,0 +1,48 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: docs-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: Document is the Schema for the documents API
+      displayName: Document
+      kind: Document
+      name: documents.uccps.uccps.document.domain
+      version: v1
+  description: 有雀离线文档
+  displayName: document-operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - documen
+  - operator
+  links:
+  - name: Docs Operator
+    url: https://docs-operator.domain
+  maintainers:
+  - email: sunyuxuan@uniontech.com
+    name: syx
+  maturity: alpha
+  provider:
+    name: syx-test
+  version: 0.0.0

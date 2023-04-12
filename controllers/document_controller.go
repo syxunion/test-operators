@@ -47,8 +47,9 @@ type DocumentReconciler struct {
 //+kubebuilder:rbac:groups=uccps.uccps.document.domain,resources=documents/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=uccps.uccps.document.domain,resources=documents/finalizers,verbs=update
 //+kubebuilder:rbac:groups=uccps.uccps.document.domain,resources=documents,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=apps,resources=deployment,verbs=get;update;patch;watch;list;delete;create
-//+kubebuilder:rbac:groups=apps,resources=services,verbs=get;update;patch;watch;list;delete;create
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;update;patch;watch;list;delete;create
+//+kubebuilder:rbac:groups=core,resources=services,verbs=get;update;patch;watch;list;delete;create
+//+kubebuilder:rbac:groups=route,resources=routes,verbs=get;update;patch;watch;list;delete;create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -93,6 +94,12 @@ func (r *DocumentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		// 如果没有实例就要创建了
 		if errors.IsNotFound(err) {
 
+			// 立即创建deployment
+			if err = createDocumentDeployment(ctx, instance, r); err != nil {
+				// 返回错误信息给外部
+				return ctrl.Result{}, err
+			}
+
 			// 先要创建service
 			if err = createService(ctx, instance, r, req); err != nil {
 				// 返回错误信息给外部
@@ -105,12 +112,6 @@ func (r *DocumentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				return ctrl.Result{}, err
 			}
 
-			// 立即创建deployment
-			if err = createDocumentDeployment(ctx, instance, r); err != nil {
-				// 返回错误信息给外部
-				return ctrl.Result{}, err
-			}
-
 			// 创建成功就可以返回了
 			return ctrl.Result{}, nil
 		} else {
@@ -118,13 +119,6 @@ func (r *DocumentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{}, err
 		}
 	}
-
-	// 通过客户端更新deployment
-	//if err = r.Update(ctx, deployment); err != nil {
-	//	// 返回错误信息给外部
-	//	return ctrl.Result{}, err
-	//}
-	//判断字段是否更新
 
 	if err = updateDocumentDeployment(ctx, instance, r); err != nil {
 		// 返回错误信息给外部
@@ -167,7 +161,7 @@ func createDocumentDeployment(ctx context.Context, document *uccpsv1.Document, r
 								{Name: "AUTH_NAME", Value: name},
 							},
 							Ports: []corev1.ContainerPort{
-								{ContainerPort: 8080, Name: "https-document"},
+								{ContainerPort: 8080, Name: "http-document"},
 							},
 							Image:           document.Spec.Image,
 							ImagePullPolicy: "Always",
@@ -245,9 +239,9 @@ func updateDocumentDeployment(ctx context.Context, document *uccpsv1.Document, r
 	}
 
 	// 创建deployment
-	if err := r.Update(ctx, dep1); err != nil {
-		return err
-	}
+	//	if err := r.Create(ctx, dep1); err != nil {
+	//		return err
+	//	}
 	return nil
 }
 
@@ -274,10 +268,10 @@ func createService(ctx context.Context, document *uccpsv1.Document, r *DocumentR
 		},
 		Spec: corev1.ServiceSpec{Ports: []corev1.ServicePort{
 			{
-				Name:       "https-document",
+				Name:       "http-document",
 				Port:       8080,
 				Protocol:   "TCP",
-				TargetPort: intstr.FromString("https-document"),
+				TargetPort: intstr.FromString("http-document"),
 			},
 		},
 			Selector: map[string]string{"app": document.Name},
@@ -285,7 +279,7 @@ func createService(ctx context.Context, document *uccpsv1.Document, r *DocumentR
 		},
 	}
 	// 这一步非常关键！
-	// 建立关联后，删除elasticweb资源时就会将deployment也删除掉
+	// 建立关联后，删除elasticweb资源时就会将service也删除掉
 	if err := controllerutil.SetControllerReference(document, svc, r.Scheme); err != nil {
 		return err
 	}
@@ -317,36 +311,34 @@ func createRoute(ctx context.Context, document *uccpsv1.Document, r *DocumentRec
 	var weight int32
 
 	weight = 100
-	svcr := &routev1.Route{
+	svc := &routev1.Route{
 		ObjectMeta: matev1.ObjectMeta{
 			Namespace: document.Namespace,
 		},
 		Spec: routev1.RouteSpec{
-			Host: "uccps-document",
 			Port: &routev1.RoutePort{
 				TargetPort: intstr.IntOrString{StrVal: "8080"},
 			},
-			TLS: &routev1.TLSConfig{
-				Termination:                   "edge",
-				InsecureEdgeTerminationPolicy: "Redirect",
-			},
+			//TLS: &routev1.TLSConfig{
+			//Termination:                   "edge",
+			//InsecureEdgeTerminationPolicy: "Redirect",
+			//},
 			WildcardPolicy: routev1.WildcardPolicyNone,
 
 			To: routev1.RouteTargetReference{
 				Kind:   "Service",
-				Name:   "https-document",
+				Name:   "http-document",
 				Weight: &weight,
 			},
 		},
 	}
-	// 这一步非常关键！
-	// 建立关联后，删除elasticweb资源时就会将deployment也删除掉
-	if err := controllerutil.SetControllerReference(document, svcr, r.Scheme); err != nil {
+	// 建立关联后，删除资源时就会将路由也删除掉
+	if err := controllerutil.SetControllerReference(document, svc, r.Scheme); err != nil {
 		return err
 	}
 
 	// 创建路由
-	if err := r.Create(ctx, svcr); err != nil {
+	if err := r.Create(ctx, svc); err != nil {
 		return err
 	}
 	return nil

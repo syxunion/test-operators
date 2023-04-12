@@ -32,6 +32,7 @@ type DocumentSpec struct {
 	// Foo is an example field of Document. Edit document_types.go to remove/update
 	Name  string `json:"name,omitempty"`
 	Image string `json:"image,omitempty"`
+	Route string `json:"route,omitempty"`
 }
 
 // DocumentStatus defines the observed state of Document
@@ -46,8 +47,8 @@ type DocumentStatus struct {
 //+kubebuilder:rbac:groups=uccps.uccps.document.domain,resources=documents,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=uccps.uccps.document.domain,resources=documents/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=uccps.uccps.document.domain,resources=documents/finalizers,verbs=update
-//+kubebuilder:rbac:groups=apps,resources=deployment,verbs=get;update;patch;watch;list;delete;create
-//+kubebuilder:rbac:groups=apps,resources=services,verbs=get;update;patch;watch;list;delete;create
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;update;patch;watch;list;delete;create
+//+kubebuilder:rbac:groups=core,resources=services,verbs=get;update;patch;watch;list;delete;create
 
 // Document is the Schema for the documents API
 type Document struct {

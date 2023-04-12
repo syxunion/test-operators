@@ -8,7 +8,7 @@ rules:
 - apiGroups:
   - apps
   resources:
-  - deployment
+  - deployments
   verbs:
   - create
   - delete
@@ -18,9 +18,21 @@ rules:
   - update
   - watch
 - apiGroups:
-  - apps
+  - ""
   resources:
   - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - route
+  resources:
+  - routes
   verbs:
   - create
   - delete
